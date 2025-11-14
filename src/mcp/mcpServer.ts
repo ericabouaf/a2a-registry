@@ -4,13 +4,9 @@
  * Thin adapter layer that calls AgentService methods
  */
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema
-} from '@modelcontextprotocol/sdk/types.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
 import type { AgentService } from '../services/AgentService.js';
 import {
@@ -19,20 +15,33 @@ import {
   AgentAlreadyExistsError
 } from '../types/index.js';
 
-// Input schemas for MCP tools
-const RegisterAgentSchema = z.object({
+// Input/Output schemas for MCP tools
+const RegisterAgentInputSchema = {
   url: z.string()
     .url('Must be a valid URL')
     .describe('Agent URL to fetch the AgentCard from (can be base URL or direct .json URL)')
-}).strict();
+};
 
-const GetAgentSchema = z.object({
+const AgentCardOutputSchema = {
+  agentCard: z.object({
+    name: z.string(),
+    description: z.string(),
+    url: z.string(),
+    version: z.string(),
+    capabilities: z.array(z.string()),
+    defaultInputModes: z.array(z.string()),
+    defaultOutputModes: z.array(z.string()),
+    skills: z.array(z.any())
+  }).passthrough()
+};
+
+const GetAgentInputSchema = {
   name: z.string()
     .min(1, 'Name cannot be empty')
     .describe('Agent name to retrieve')
-}).strict();
+};
 
-const UpdateAgentSchema = z.object({
+const UpdateAgentInputSchema = {
   name: z.string()
     .min(1, 'Name cannot be empty')
     .describe('Agent name to update'),
@@ -40,37 +49,47 @@ const UpdateAgentSchema = z.object({
     .url('Must be a valid URL')
     .optional()
     .describe('Optional new URL to fetch updated AgentCard from')
-}).strict();
+};
 
-const DeleteAgentSchema = z.object({
+const DeleteAgentInputSchema = {
   name: z.string()
     .min(1, 'Name cannot be empty')
     .describe('Agent name to delete')
-}).strict();
+};
+
+const DeleteAgentOutputSchema = {
+  success: z.boolean(),
+  message: z.string()
+};
+
+const AgentListOutputSchema = {
+  agents: z.array(z.object({
+    name: z.string(),
+    description: z.string(),
+    url: z.string(),
+    version: z.string(),
+    capabilities: z.array(z.string()),
+    defaultInputModes: z.array(z.string()),
+    defaultOutputModes: z.array(z.string()),
+    skills: z.array(z.any())
+  }).passthrough())
+};
 
 /**
  * Create and configure MCP server instance
  */
-export function createMcpServer(agentService: AgentService): Server {
-  const server = new Server(
-    {
-      name: 'a2a-registry-mcp-server',
-      version: '1.0.0'
-    },
-    {
-      capabilities: {
-        tools: {}
-      }
-    }
-  );
+export function createMcpServer(agentService: AgentService): McpServer {
+  const server = new McpServer({
+    name: 'a2a-registry-mcp-server',
+    version: '1.0.0'
+  });
 
-  // Register tools/list handler
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-      tools: [
-        {
-          name: 'a2a_register_agent',
-          description: `Register a new agent in the A2A Registry by fetching its AgentCard from a URL.
+  // Register a2a_register_agent tool
+  server.registerTool(
+    'a2a_register_agent',
+    {
+      title: 'Register Agent',
+      description: `Register a new agent in the A2A Registry by fetching its AgentCard from a URL.
 
 This tool registers a new agent by automatically fetching and validating its AgentCard. It uses intelligent URL routing:
 - If URL ends with .json, fetches directly from that URL
@@ -98,26 +117,40 @@ Error Handling:
   - Returns error if URL cannot be reached → Check URL is correct and accessible
   - Returns error if AgentCard validation fails → Ensure the AgentCard follows A2A protocol specification
   - Returns error if required fields are missing → AgentCard must include name, description, url, version, capabilities, defaultInputModes, defaultOutputModes, and skills`,
-          inputSchema: {
-            type: 'object',
-            properties: {
-              url: {
-                type: 'string',
-                description: 'Agent URL to fetch the AgentCard from (can be base URL or direct .json URL)'
-              }
-            },
-            required: ['url']
-          },
-          annotations: {
-            readOnlyHint: false,
-            destructiveHint: false,
-            idempotentHint: false,
-            openWorldHint: true
-          }
-        },
-        {
-          name: 'a2a_list_agents',
-          description: `List all agents registered in the A2A Registry.
+      inputSchema: RegisterAgentInputSchema,
+      outputSchema: AgentCardOutputSchema
+    },
+    async ({ url }) => {
+      try {
+        const agentCard = await agentService.registerAgent(url);
+        const output = { agentCard };
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(agentCard, null, 2)
+            }
+          ],
+          structuredContent: output
+        };
+      } catch (error) {
+        if (error instanceof AgentAlreadyExistsError) {
+          throw new Error(`${error.message}. Use a2a_update_agent to update the existing agent instead.`);
+        }
+        if (error instanceof AgentFetchError || error instanceof InvalidAgentCardError) {
+          throw new Error(error.message);
+        }
+        throw error;
+      }
+    }
+  );
+
+  // Register a2a_list_agents tool
+  server.registerTool(
+    'a2a_list_agents',
+    {
+      title: 'List Agents',
+      description: `List all agents registered in the A2A Registry.
 
 This tool returns the complete list of all registered agents with their full AgentCard data. Each AgentCard includes all metadata about the agent including name, description, capabilities, supported input/output modes, and skills.
 
@@ -140,20 +173,30 @@ Examples:
   - Use when: "Show me all registered agents"
   - Use when: "What agents are available?"
   - Use when: "List the agents in the registry"`,
-          inputSchema: {
-            type: 'object',
-            properties: {}
-          },
-          annotations: {
-            readOnlyHint: true,
-            destructiveHint: false,
-            idempotentHint: true,
-            openWorldHint: false
+      inputSchema: {},
+      outputSchema: AgentListOutputSchema
+    },
+    async () => {
+      const agents = await agentService.listAgents();
+      const output = { agents };
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(agents, null, 2)
           }
-        },
-        {
-          name: 'a2a_get_agent',
-          description: `Get detailed information about a specific agent by name.
+        ],
+        structuredContent: output
+      };
+    }
+  );
+
+  // Register a2a_get_agent tool
+  server.registerTool(
+    'a2a_get_agent',
+    {
+      title: 'Get Agent',
+      description: `Get detailed information about a specific agent by name.
 
 This tool retrieves the complete AgentCard for a single agent identified by its name. The agent name serves as the unique identifier in the registry.
 
@@ -171,26 +214,35 @@ Examples:
 
 Error Handling:
   - Returns error if agent not found → Use a2a_list_agents to see available agents`,
-          inputSchema: {
-            type: 'object',
-            properties: {
-              name: {
-                type: 'string',
-                description: 'Agent name to retrieve'
-              }
-            },
-            required: ['name']
-          },
-          annotations: {
-            readOnlyHint: true,
-            destructiveHint: false,
-            idempotentHint: true,
-            openWorldHint: false
+      inputSchema: GetAgentInputSchema,
+      outputSchema: AgentCardOutputSchema
+    },
+    async ({ name }) => {
+      const agent = await agentService.getAgent(name);
+
+      if (!agent) {
+        throw new Error(`Agent '${name}' not found. Use a2a_list_agents to see available agents.`);
+      }
+
+      const output = { agentCard: agent };
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(agent, null, 2)
           }
-        },
-        {
-          name: 'a2a_update_agent',
-          description: `Update an existing agent by re-fetching its AgentCard.
+        ],
+        structuredContent: output
+      };
+    }
+  );
+
+  // Register a2a_update_agent tool
+  server.registerTool(
+    'a2a_update_agent',
+    {
+      title: 'Update Agent',
+      description: `Update an existing agent by re-fetching its AgentCard.
 
 This tool updates an agent's information by re-fetching and revalidating its AgentCard. You can optionally provide a new URL if the agent's endpoint has changed. The agent is identified by name, and the fetched AgentCard must have the same name.
 
@@ -211,30 +263,35 @@ Error Handling:
   - Returns error if URL cannot be reached → Check URL is correct and accessible
   - Returns error if fetched AgentCard has different name → Cannot change agent name during update
   - Returns error if validation fails → Ensure AgentCard follows A2A protocol specification`,
-          inputSchema: {
-            type: 'object',
-            properties: {
-              name: {
-                type: 'string',
-                description: 'Agent name to update'
-              },
-              url: {
-                type: 'string',
-                description: 'Optional new URL to fetch updated AgentCard from'
-              }
-            },
-            required: ['name']
-          },
-          annotations: {
-            readOnlyHint: false,
-            destructiveHint: false,
-            idempotentHint: true,
-            openWorldHint: true
+      inputSchema: UpdateAgentInputSchema,
+      outputSchema: AgentCardOutputSchema
+    },
+    async ({ name, url }) => {
+      const agentCard = await agentService.updateAgent(name, url);
+
+      if (!agentCard) {
+        throw new Error(`Agent '${name}' not found. Use a2a_register_agent to register new agents.`);
+      }
+
+      const output = { agentCard };
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(agentCard, null, 2)
           }
-        },
-        {
-          name: 'a2a_delete_agent',
-          description: `Delete an agent from the registry by name.
+        ],
+        structuredContent: output
+      };
+    }
+  );
+
+  // Register a2a_delete_agent tool
+  server.registerTool(
+    'a2a_delete_agent',
+    {
+      title: 'Delete Agent',
+      description: `Delete an agent from the registry by name.
 
 This tool permanently removes an agent from the registry. The agent is identified by its name.
 
@@ -250,198 +307,31 @@ Examples:
 
 Error Handling:
   - Returns error if agent not found → Use a2a_list_agents to see available agents`,
-          inputSchema: {
-            type: 'object',
-            properties: {
-              name: {
-                type: 'string',
-                description: 'Agent name to delete'
-              }
-            },
-            required: ['name']
-          },
-          annotations: {
-            readOnlyHint: false,
-            destructiveHint: true,
-            idempotentHint: true,
-            openWorldHint: false
-          }
-        }
-      ]
-    };
-  });
+      inputSchema: DeleteAgentInputSchema,
+      outputSchema: DeleteAgentOutputSchema
+    },
+    async ({ name }) => {
+      const deleted = await agentService.deleteAgent(name);
 
-  // Register tools/call handler
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-
-    try {
-      switch (name) {
-        case 'a2a_register_agent': {
-          const params = RegisterAgentSchema.parse(args);
-          const agentCard = await agentService.registerAgent(params.url);
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(agentCard, null, 2)
-              }
-            ]
-          };
-        }
-
-        case 'a2a_list_agents': {
-          const agents = await agentService.listAgents();
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(agents, null, 2)
-              }
-            ]
-          };
-        }
-
-        case 'a2a_get_agent': {
-          const params = GetAgentSchema.parse(args);
-          const agent = await agentService.getAgent(params.name);
-
-          if (!agent) {
-            return {
-              isError: true,
-              content: [
-                {
-                  type: 'text',
-                  text: `Error: Agent '${params.name}' not found. Use a2a_list_agents to see available agents.`
-                }
-              ]
-            };
-          }
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(agent, null, 2)
-              }
-            ]
-          };
-        }
-
-        case 'a2a_update_agent': {
-          const params = UpdateAgentSchema.parse(args);
-          const agentCard = await agentService.updateAgent(params.name, params.url);
-
-          if (!agentCard) {
-            return {
-              isError: true,
-              content: [
-                {
-                  type: 'text',
-                  text: `Error: Agent '${params.name}' not found. Use a2a_register_agent to register new agents.`
-                }
-              ]
-            };
-          }
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(agentCard, null, 2)
-              }
-            ]
-          };
-        }
-
-        case 'a2a_delete_agent': {
-          const params = DeleteAgentSchema.parse(args);
-          const deleted = await agentService.deleteAgent(params.name);
-
-          if (!deleted) {
-            return {
-              isError: true,
-              content: [
-                {
-                  type: 'text',
-                  text: `Error: Agent '${params.name}' not found. Use a2a_list_agents to see available agents.`
-                }
-              ]
-            };
-          }
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `Successfully deleted agent '${params.name}'`
-              }
-            ]
-          };
-        }
-
-        default:
-          return {
-            isError: true,
-            content: [
-              {
-                type: 'text',
-                text: `Unknown tool: ${name}`
-              }
-            ]
-          };
-      }
-    } catch (error) {
-      // Handle validation errors
-      if (error instanceof z.ZodError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `Validation error: ${error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')}`
-            }
-          ]
-        };
+      if (!deleted) {
+        throw new Error(`Agent '${name}' not found. Use a2a_list_agents to see available agents.`);
       }
 
-      // Handle application errors
-      if (error instanceof AgentAlreadyExistsError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `Error: ${error.message}. Use a2a_update_agent to update the existing agent instead.`
-            }
-          ]
-        };
-      }
-
-      if (error instanceof AgentFetchError || error instanceof InvalidAgentCardError) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: 'text',
-              text: `Error: ${error.message}`
-            }
-          ]
-        };
-      }
-
-      // Handle unexpected errors
+      const output = {
+        success: true,
+        message: `Successfully deleted agent '${name}'`
+      };
       return {
-        isError: true,
         content: [
           {
             type: 'text',
-            text: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`
+            text: output.message
           }
-        ]
+        ],
+        structuredContent: output
       };
     }
-  });
+  );
 
   return server;
 }
@@ -449,15 +339,19 @@ Error Handling:
 /**
  * Connect MCP server to stdio transport
  */
-export async function connectStdio(server: Server): Promise<void> {
+export async function connectStdio(server: McpServer): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('A2A Registry MCP server running via stdio');
 }
 
 /**
- * Create SSE transport for HTTP
+ * Create StreamableHTTP transport for HTTP (replaces deprecated SSE transport)
+ * Note: This should be used with a POST endpoint, not GET
  */
-export function createSseTransport(endpoint: string, response: any): SSEServerTransport {
-  return new SSEServerTransport(endpoint, response);
+export function createStreamableHttpTransport(): StreamableHTTPServerTransport {
+  return new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined, // Stateless mode - no session management
+    enableJsonResponse: true
+  });
 }

@@ -127,6 +127,20 @@ DELETE /agents/:name
 
 The MCP server is available at `/mcp` using SSE (Server-Sent Events) transport.
 
+
+#### Config example
+
+```json
+{
+  "mcpServers": {
+    "a2a-registry": {
+      "type": "http",
+      "url": "http://localhost:3005/mcp"
+    }
+  }
+}
+```
+
 #### Available MCP Tools
 
 1. **a2a_register_agent**

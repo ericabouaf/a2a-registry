@@ -11,7 +11,7 @@ import { JsonFileStore } from './store/JsonFileStore.js';
 import { SqliteStore } from './store/SqliteStore.js';
 import { AgentService } from './services/AgentService.js';
 import { createRestApi } from './api/restApi.js';
-import { createMcpServer, createSseTransport } from './mcp/mcpServer.js';
+import { createMcpServer, createStreamableHttpTransport } from './mcp/mcpServer.js';
 import type { Store, StoreType, CliConfig } from './types/index.js';
 
 /**
@@ -109,6 +109,9 @@ async function main() {
   // Create Express app
   const app = express();
 
+  // Enable JSON body parsing for MCP endpoint
+  app.use(express.json());
+
   // Mount REST API
   const restApi = createRestApi(agentService);
   app.use(restApi);
@@ -116,25 +119,16 @@ async function main() {
   // Create MCP server
   const mcpServer = createMcpServer(agentService);
 
-  // Mount MCP endpoint with SSE transport
-  app.get('/mcp', async (req, res) => {
-    console.error('MCP client connected via SSE');
+  // Mount MCP endpoint with StreamableHTTP transport (stateless mode)
+  app.post('/mcp', async (req, res) => {
+    const transport = createStreamableHttpTransport();
 
-    // Set SSE headers
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
-
-    // Create SSE transport for this connection
-    const transport = createSseTransport('/mcp', res);
-
-    // Connect MCP server to this transport
-    await mcpServer.connect(transport);
-
-    // Handle client disconnect
-    req.on('close', () => {
-      console.error('MCP client disconnected');
+    res.on('close', () => {
+      transport.close();
     });
+
+    await mcpServer.connect(transport);
+    await transport.handleRequest(req, res, req.body);
   });
 
   // Health check endpoint
