@@ -1,6 +1,6 @@
 # Dependencies
-node_modules/
 package-lock.json
+node_modules/
 
 # Build output
 dist/
@@ -12,9 +12,6 @@ dist/
 # Data files (but not examples)
 /*.json
 /*.db
-!package.json
-!package-lock.json
-!tsconfig.json
 
 # Logs
 logs/
