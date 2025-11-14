@@ -162,13 +162,13 @@ async function main() {
 ┌─────────────────────────────────────────────────────────┐
 │  A2A Registry Server                                    │
 ├─────────────────────────────────────────────────────────┤
-│  Storage:     ${config.store.padEnd(45)}│
-│  File:        ${config.file.padEnd(45)}│
-│  Port:        ${config.port.toString().padEnd(45)}│
+│  Storage:     ${config.store.padEnd(42)}│
+│  File:        ${config.file.padEnd(42)}│
+│  Port:        ${config.port.toString().padEnd(42)}│
 ├─────────────────────────────────────────────────────────┤
-│  REST API:    http://localhost:${config.port}/agents${' '.repeat(22)}│
-│  MCP Server:  http://localhost:${config.port}/mcp${' '.repeat(25)}│
-│  Health:      http://localhost:${config.port}/health${' '.repeat(22)}│
+│  REST API:    http://localhost:${config.port}/agents${' '.repeat(14)}│
+│  MCP Server:  http://localhost:${config.port}/mcp${' '.repeat(17)}│
+│  Health:      http://localhost:${config.port}/health${' '.repeat(14)}│
 └─────────────────────────────────────────────────────────┘
     `);
   });

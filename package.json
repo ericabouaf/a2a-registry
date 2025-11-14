@@ -1,5 +1,5 @@
 {
-  "name": "a2a-registry-mcp-server",
+  "name": "a2a-registry",
   "version": "1.0.0",
   "description": "MCP server providing A2A agent registry with REST API and MCP tools",
   "type": "module",
@@ -23,7 +23,7 @@
     "mcp",
     "model-context-protocol"
   ],
-  "author": "",
+  "author": "Eric Abouaf <eric.abouaf@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "@a2a-js/sdk": "^0.3.0",
@@ -39,5 +39,9 @@
     "@types/node": "^22.10.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://github.com/ericabouaf/a2a-registry.git"
   }
 }
