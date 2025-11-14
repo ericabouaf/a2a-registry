@@ -28,10 +28,24 @@ const AgentCardOutputSchema = {
     description: z.string(),
     url: z.string(),
     version: z.string(),
-    capabilities: z.array(z.string()),
+    capabilities: z.object({
+      streaming: z.boolean().optional(),
+      pushNotifications: z.boolean().optional(),
+      stateTransitionHistory: z.boolean().optional(),
+      extensions: z.array(z.any()).optional()
+    }).passthrough(),
     defaultInputModes: z.array(z.string()),
     defaultOutputModes: z.array(z.string()),
-    skills: z.array(z.any())
+    skills: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string(),
+      tags: z.array(z.string()),
+      examples: z.array(z.string()).optional(),
+      inputModes: z.array(z.string()).optional(),
+      outputModes: z.array(z.string()).optional(),
+      security: z.array(z.any()).optional()
+    }).passthrough())
   }).passthrough()
 };
 
@@ -68,10 +82,24 @@ const AgentListOutputSchema = {
     description: z.string(),
     url: z.string(),
     version: z.string(),
-    capabilities: z.array(z.string()),
+    capabilities: z.object({
+      streaming: z.boolean().optional(),
+      pushNotifications: z.boolean().optional(),
+      stateTransitionHistory: z.boolean().optional(),
+      extensions: z.array(z.any()).optional()
+    }).passthrough(),
     defaultInputModes: z.array(z.string()),
     defaultOutputModes: z.array(z.string()),
-    skills: z.array(z.any())
+    skills: z.array(z.object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string(),
+      tags: z.array(z.string()),
+      examples: z.array(z.string()).optional(),
+      inputModes: z.array(z.string()).optional(),
+      outputModes: z.array(z.string()).optional(),
+      security: z.array(z.any()).optional()
+    }).passthrough())
   }).passthrough())
 };
 
@@ -95,7 +123,7 @@ This tool registers a new agent by automatically fetching and validating its Age
 - If URL ends with .json, fetches directly from that URL
 - Otherwise, appends /.well-known/agent-card.json to the URL
 
-The fetched AgentCard is validated to ensure it contains all required fields (name, description, url, version, capabilities, defaultInputModes, defaultOutputModes, skills) and stored in the registry using the agent's name as the primary key.
+The fetched AgentCard is validated to ensure it contains all required fields (name, description, url, version, capabilities object, defaultInputModes, defaultOutputModes, skills array) and stored in the registry using the agent's name as the primary key.
 
 Args:
   - url (string): Agent URL to fetch the AgentCard from
@@ -116,7 +144,7 @@ Error Handling:
   - Returns error if agent with same name already exists → Use a2a_update_agent to update instead
   - Returns error if URL cannot be reached → Check URL is correct and accessible
   - Returns error if AgentCard validation fails → Ensure the AgentCard follows A2A protocol specification
-  - Returns error if required fields are missing → AgentCard must include name, description, url, version, capabilities, defaultInputModes, defaultOutputModes, and skills`,
+  - Returns error if required fields are missing → AgentCard must include name, description, url, version, capabilities (object), defaultInputModes, defaultOutputModes, and skills (array)`,
       inputSchema: RegisterAgentInputSchema,
       outputSchema: AgentCardOutputSchema
     },
@@ -163,10 +191,10 @@ Returns:
     - description: Agent purpose and capabilities
     - url: Primary A2A endpoint URL
     - version: Agent version
-    - capabilities: Supported A2A protocol features
+    - capabilities: Object with optional features (streaming, pushNotifications, stateTransitionHistory, extensions)
     - defaultInputModes: Supported input MIME types
     - defaultOutputModes: Supported output MIME types
-    - skills: Agent's distinct capabilities
+    - skills: Array of skill objects, each with id, name, description, tags (required), and optional examples, inputModes, outputModes
     - And other optional fields (protocolVersion, preferredTransport, iconUrl, etc.)
 
 Examples:
