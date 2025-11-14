@@ -74,12 +74,12 @@ The registry implements smart URL routing for AgentCard discovery:
 https://cdn.example.com/agent.json
   → Fetch: https://cdn.example.com/agent.json
 
-// Otherwise, append /.well-known/agent.json
+// Otherwise, append /.well-known/agent-card.json
 https://example.com
-  → Fetch: https://example.com/.well-known/agent.json
+  → Fetch: https://example.com/.well-known/agent-card.json
 
 https://example.com/my-agent
-  → Fetch: https://example.com/my-agent/.well-known/agent.json
+  → Fetch: https://example.com/my-agent/.well-known/agent-card.json
 ```
 
 This follows A2A protocol conventions while supporting flexible deployments.
@@ -184,7 +184,7 @@ Following MCP server development guidelines:
 2. REST API: Parse request body
 3. REST API: Call agentService.registerAgent(url)
 4. AgentService: Determine AgentCard URL
-5. AgentService: HTTP GET https://example.com/.well-known/agent.json
+5. AgentService: HTTP GET https://example.com/.well-known/agent-card.json
 6. AgentService: Validate AgentCard structure
 7. AgentService: Call store.createAgent(agentCard)
 8. Store: Check uniqueness, persist data

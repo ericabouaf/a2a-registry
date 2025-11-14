@@ -104,8 +104,8 @@ The registry will automatically:
 4. Store it using the agent's name as the primary key
 
 **URL Routing Examples:**
-- `https://example.com` → Fetches from `https://example.com/.well-known/agent.json`
-- `https://example.com/my-agent` → Fetches from `https://example.com/my-agent/.well-known/agent.json`
+- `https://example.com` → Fetches from `https://example.com/.well-known/agent-card.json`
+- `https://example.com/my-agent` → Fetches from `https://example.com/my-agent/.well-known/agent-card.json`
 - `https://cdn.example.com/agent.json` → Fetches directly (URL ends with `.json`)
 
 #### Update Agent

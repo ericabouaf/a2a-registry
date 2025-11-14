@@ -156,9 +156,9 @@ export class AgentService {
       return url;
     }
 
-    // Otherwise, append /.well-known/agent.json
+    // Otherwise, append /.well-known/agent-card.json
     // Remove trailing slash if present
     const baseUrl = url.replace(/\/$/, '');
-    return `${baseUrl}/.well-known/agent.json`;
+    return `${baseUrl}/.well-known/agent-card.json`;
   }
 }

@@ -93,15 +93,15 @@ export function createMcpServer(agentService: AgentService): McpServer {
 
 This tool registers a new agent by automatically fetching and validating its AgentCard. It uses intelligent URL routing:
 - If URL ends with .json, fetches directly from that URL
-- Otherwise, appends /.well-known/agent.json to the URL
+- Otherwise, appends /.well-known/agent-card.json to the URL
 
 The fetched AgentCard is validated to ensure it contains all required fields (name, description, url, version, capabilities, defaultInputModes, defaultOutputModes, skills) and stored in the registry using the agent's name as the primary key.
 
 Args:
   - url (string): Agent URL to fetch the AgentCard from
     Examples:
-      - "https://example.com" → fetches from https://example.com/.well-known/agent.json
-      - "https://example.com/my-agent" → fetches from https://example.com/my-agent/.well-known/agent.json
+      - "https://example.com" → fetches from https://example.com/.well-known/agent-card.json
+      - "https://example.com/my-agent" → fetches from https://example.com/my-agent/.well-known/agent-card.json
       - "https://cdn.example.com/agent.json" → fetches directly from the provided URL
 
 Returns:

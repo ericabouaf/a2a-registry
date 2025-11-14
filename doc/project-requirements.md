@@ -58,14 +58,14 @@ When registering a new agent, only the agent's URL is required. The registry mus
 1. Accept the agent URL as input
 2. Determine the AgentCard URL using intelligent routing:
    - If the URL ends with `.json`, use it directly as the AgentCard URL
-   - Otherwise, append `/.well-known/agent.json` to the base URL
+   - Otherwise, append `/.well-known/agent-card.json` to the base URL
 3. Make an HTTP GET request to the determined AgentCard URL
 4. Validate that the response is a valid AgentCard object
 5. Store the fetched AgentCard in the registry
 
 **Examples:**
-- Input: `https://example.com` → Fetch from: `https://example.com/.well-known/agent.json`
-- Input: `https://example.com/my-agent` → Fetch from: `https://example.com/my-agent/.well-known/agent.json`
+- Input: `https://example.com` → Fetch from: `https://example.com/.well-known/agent-card.json`
+- Input: `https://example.com/my-agent` → Fetch from: `https://example.com/my-agent/.well-known/agent-card.json`
 - Input: `https://example.com/agents/my-agent.json` → Fetch from: `https://example.com/agents/my-agent.json` (direct)
 - Input: `https://cdn.example.com/agentcard.json` → Fetch from: `https://cdn.example.com/agentcard.json` (direct)
 
@@ -193,7 +193,7 @@ async function fetchAgentCard(url: string): Promise<AgentCard> {
   // 1. Determine the AgentCard URL using intelligent routing
   const agentCardUrl = url.endsWith('.json')
     ? url  // Use URL directly if it's a JSON file
-    : `${url}/.well-known/agent.json`;  // Otherwise append well-known path
+    : `${url}/.well-known/agent-card.json`;  // Otherwise append well-known path
 
   // 2. Make HTTP GET request
   const response = await fetch(agentCardUrl);
@@ -259,7 +259,7 @@ POST /agents
 	•	Registers a new agent.
 	•	Expects a JSON body with a single field: `{ "url": "https://agent-url.com" }`
 	•	The URL can be either:
-		- A base URL (e.g., `https://example.com`) → fetches from `/.well-known/agent.json`
+		- A base URL (e.g., `https://example.com`) → fetches from `/.well-known/agent-card.json`
 		- A direct JSON URL (e.g., `https://example.com/agent.json`) → fetches directly
 	•	The server will:
 		1. Determine the AgentCard URL using intelligent routing (check if URL ends with `.json`)
@@ -449,6 +449,6 @@ The A2A Registry is a lightweight but extensible system for storing and serving 
 - **Concurrent Access**: Streamable HTTP transport for MCP allows multiple agents to access the registry simultaneously
 - **Pluggable Storage**: Supports JSON file or SQLite backends, selectable at runtime
 
-Agent registration is simplified: provide only a URL, and the registry automatically fetches the standard AgentCard from the agent's `.well-known/agent.json` endpoint (or directly from a `.json` URL). This ensures full compatibility with the official A2A protocol specification via the `@a2a-js/sdk` package.
+Agent registration is simplified: provide only a URL, and the registry automatically fetches the standard AgentCard from the agent's `.well-known/agent-card.json` endpoint (or directly from a `.json` URL). This ensures full compatibility with the official A2A protocol specification via the `@a2a-js/sdk` package.
 
 The system is operational with a single command, using PM2 in production.
