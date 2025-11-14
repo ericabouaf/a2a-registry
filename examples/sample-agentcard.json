@@ -1,0 +1,33 @@
+{
+  "name": "ExampleAgent",
+  "description": "An example A2A agent for testing the registry",
+  "url": "https://example.com/agent",
+  "version": "1.0.0",
+  "protocolVersion": "0.3.0",
+  "preferredTransport": "JSONRPC",
+  "capabilities": [
+    "text-generation",
+    "question-answering"
+  ],
+  "defaultInputModes": [
+    "text/plain",
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "text/plain",
+    "application/json"
+  ],
+  "skills": [
+    {
+      "name": "answer-questions",
+      "description": "Answers questions based on available knowledge",
+      "inputModes": ["text/plain"],
+      "outputModes": ["text/plain"]
+    }
+  ],
+  "iconUrl": "https://example.com/icon.png",
+  "provider": {
+    "name": "Example Corp",
+    "url": "https://example.com"
+  }
+}
