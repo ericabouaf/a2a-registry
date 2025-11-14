@@ -1,6 +1,6 @@
 {
   "name": "a2a-registry",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server providing A2A agent registry with REST API and MCP tools",
   "type": "module",
   "main": "dist/index.js",
