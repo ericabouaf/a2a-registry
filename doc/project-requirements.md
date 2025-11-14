@@ -69,15 +69,9 @@ When registering a new agent, only the agent's URL is required. The registry mus
 - Input: `https://example.com/agents/my-agent.json` → Fetch from: `https://example.com/agents/my-agent.json` (direct)
 - Input: `https://cdn.example.com/agentcard.json` → Fetch from: `https://cdn.example.com/agentcard.json` (direct)
 
-3.3. Registry Extensions
-
-For registry management purposes, the following additional fields are tracked:
-- `createdAt`: ISO 8601 timestamp of registration
-- `updatedAt`: ISO 8601 timestamp of last update
-
 **Note:** The agent's `name` field serves as the primary key in the registry. Agent names must be unique.
 
-3.4. Type Imports
+3.3. Type Imports
 
 The project must import AgentCard and related types from `@a2a-js/sdk`:
 
@@ -89,26 +83,16 @@ import type { AgentCard } from '@a2a-js/sdk';
 
 4. Storage Abstraction Layer
 
-The project must define a Store interface that works with AgentCard objects extended with registry metadata.
+The project must define a Store interface that works with AgentCard objects.
 
-4.1. Registry Agent Type
-
-```typescript
-interface RegistryAgent extends AgentCard {
-  // name is inherited from AgentCard and serves as the primary key
-  createdAt: string;    // ISO 8601 timestamp
-  updatedAt: string;    // ISO 8601 timestamp
-}
-```
-
-4.2. Store Interface
+4.1. Store Interface
 
 ```typescript
 interface Store {
-  listAgents(): Promise<RegistryAgent[]>;
-  getAgent(name: string): Promise<RegistryAgent | null>;
-  createAgent(agentCard: AgentCard): Promise<RegistryAgent>;
-  updateAgent(name: string, agentCard: AgentCard): Promise<RegistryAgent | null>;
+  listAgents(): Promise<AgentCard[]>;
+  getAgent(name: string): Promise<AgentCard | null>;
+  createAgent(agentCard: AgentCard): Promise<AgentCard>;
+  updateAgent(name: string, agentCard: AgentCard): Promise<AgentCard | null>;
   deleteAgent(name: string): Promise<boolean>;
 }
 ```
@@ -118,7 +102,7 @@ interface Store {
 - The `createAgent` method receives an already-fetched AgentCard and will fail if an agent with the same name already exists
 - The URL discovery and fetching logic is handled at a higher level (in the API/service layer) before persisting to storage
 
-4.3. Implementations
+4.2. Implementations
 
 Two storage implementations must be provided:
 	1.	JsonFileStore
@@ -132,7 +116,7 @@ Two storage implementations must be provided:
 	•	Must create the agents table if it does not exist.
 	•	Uses agent name as the PRIMARY KEY in the database schema.
 
-4.4. Runtime Configuration
+4.3. Runtime Configuration
 
 The storage backend must be selectable at runtime:
 
@@ -157,10 +141,10 @@ A central `AgentService` class/module must be created to handle all agent operat
 class AgentService {
   constructor(private store: Store) {}
 
-  async registerAgent(url: string): Promise<RegistryAgent>;
-  async listAgents(): Promise<RegistryAgent[]>;
-  async getAgent(name: string): Promise<RegistryAgent | null>;
-  async updateAgent(name: string, url?: string): Promise<RegistryAgent | null>;
+  async registerAgent(url: string): Promise<AgentCard>;
+  async listAgents(): Promise<AgentCard[]>;
+  async getAgent(name: string): Promise<AgentCard | null>;
+  async updateAgent(name: string, url?: string): Promise<AgentCard | null>;
   async deleteAgent(name: string): Promise<boolean>;
 }
 ```
@@ -169,7 +153,6 @@ class AgentService {
 - Intelligent URL routing (`.json` detection)
 - AgentCard fetching from remote URLs
 - AgentCard validation
-- Timestamp management (createdAt, updatedAt)
 - Interaction with the Store layer
 - Error handling and normalization
 
@@ -282,9 +265,8 @@ POST /agents
 		1. Determine the AgentCard URL using intelligent routing (check if URL ends with `.json`)
 		2. Fetch the AgentCard from the determined URL
 		3. Validate the fetched AgentCard structure
-		4. Add createdAt and updatedAt timestamps
-		5. Store the complete RegistryAgent using the agent's name as the key
-	•	Returns 201 with the created RegistryAgent resource.
+		4. Store the AgentCard using the agent's name as the key
+	•	Returns 201 with the created AgentCard resource.
 	•	Returns 400 if the URL is invalid or the AgentCard cannot be fetched/validated.
 	•	Returns 409 if an agent with the same name already exists.
 
@@ -296,8 +278,7 @@ PUT /agents/:name
 		1. Re-fetch the AgentCard from the agent's URL (or new URL if provided)
 		2. Validate the fetched AgentCard
 		3. Update the stored data (note: if the fetched AgentCard has a different name, this should fail)
-		4. Update the updatedAt timestamp
-	•	Returns 200 with the updated RegistryAgent resource.
+	•	Returns 200 with the updated AgentCard resource.
 	•	Returns 404 if agent does not exist.
 	•	Returns 400 if the AgentCard cannot be fetched/validated or if the name has changed.
 
@@ -348,8 +329,7 @@ The following MCP tools must be implemented:
 	•	Input: `{ url: string }`
 	•	Fetches the AgentCard from the provided URL
 	•	Stores it in the registry using the agent's name as the primary key
-	•	Adds createdAt and updatedAt timestamps
-	•	Returns the created RegistryAgent or an MCP error if fetch/validation fails or if an agent with the same name already exists
+	•	Returns the created AgentCard or an MCP error if fetch/validation fails or if an agent with the same name already exists
 
 2. **listAgents**
 	•	No input required
@@ -363,7 +343,7 @@ The following MCP tools must be implemented:
 	•	Input: `{ name: string, url?: string }`
 	•	Re-fetches the AgentCard from the agent's URL (or new URL if provided)
 	•	Updates the registry (fails if the fetched AgentCard has a different name)
-	•	Returns the updated RegistryAgent or an MCP error
+	•	Returns the updated AgentCard or an MCP error
 
 5. **deleteAgent** (optional, recommended)
 	•	Input: `{ name: string }`
